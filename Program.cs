@@ -12,6 +12,8 @@ using Newtonsoft.Json.Serialization;
 namespace ReviveTXStatus;
 
 public static class Program {
+    static Timer _timer = null!;
+    
     public static async Task Main() => await BotStart();
 
     static async Task BotStart() {
@@ -42,7 +44,7 @@ public static class Program {
             ContractResolver = new CamelCasePropertyNamesContractResolver()
         };
 
-        Timer _ = new(async _ => {
+        _timer = new Timer(async _ => {
             List<Server>? serversInfo
                 = JsonConvert.DeserializeObject<List<Server>>(await File.ReadAllTextAsync("./Stuff/servers.json"));
             

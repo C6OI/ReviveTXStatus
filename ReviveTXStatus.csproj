@@ -11,11 +11,5 @@
       <PackageReference Include="DSharpPlus" Version="4.2.0" />
       <PackageReference Include="DSharpPlus.CommandsNext" Version="4.2.0" />
     </ItemGroup>
-    
-    <ItemGroup>
-        <None Update="Stuff/**">
-            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-        </None>
-    </ItemGroup>
 
 </Project>
