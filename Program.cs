@@ -34,7 +34,7 @@ public static class Program {
         commandsNextExtension.RegisterCommands(Assembly.GetExecutingAssembly());
         commandsNextExtension.CommandErrored += OnCommandError;
 
-        await client.ConnectAsync(new DiscordActivity("ReviveTX statistics", ActivityType.Watching));
+        await client.ConnectAsync(new DiscordActivity("ReviveTX Statistics", ActivityType.Watching));
         await Task.Delay(-1);
     }
 
@@ -49,20 +49,26 @@ public static class Program {
                 = JsonConvert.DeserializeObject<List<Server>>(await File.ReadAllTextAsync("./Stuff/servers.json"));
             
             if (serversInfo == null) return;
-
-            foreach (Server server in serversInfo) {
-                DiscordGuild guild = await s.GetGuildAsync(server.Id);
-                DiscordChannel? channel = guild.GetChannel(server.Channel);
-
-                if (server.DeletePreviousEmbed) {
-                    try {
-                        DiscordMessage currentEmbed = await channel.GetMessageAsync(server.LastEmbed);
-                        await currentEmbed.DeleteAsync();
-                    } catch { }
-                }
                 
-                DiscordMessage lastEmbed = await channel.SendMessageAsync(await ReviveTX.GetEmbed()); 
-                server.LastEmbed = lastEmbed.Id;
+            foreach (Server server in serversInfo) {
+                try {
+                    DiscordGuild guild = await s.GetGuildAsync(server.Id);
+                    DiscordChannel? channel = guild.GetChannel(server.Channel);
+
+                    if (server.DeletePreviousEmbed) {
+                        try {
+                            DiscordMessage currentEmbed = await channel.GetMessageAsync(server.LastEmbed);
+                            await currentEmbed.DeleteAsync();
+                        } catch (Exception ex) {
+                            await Console.Error.WriteLineAsync(ex.ToString());
+                        }
+                    }
+
+                    DiscordMessage lastEmbed = await channel.SendMessageAsync(await ReviveTX.GetEmbed());
+                    server.LastEmbed = lastEmbed.Id;
+                } catch (Exception ex) {
+                    await Console.Error.WriteLineAsync(ex.ToString());
+                }
             }
             
             await File.WriteAllTextAsync("./Stuff/servers.json", JsonConvert.SerializeObject(serversInfo, serializerSettings));
@@ -120,7 +126,9 @@ public class Commands : BaseCommandModule {
                 DiscordChannel ch = ctx.Guild.GetChannel(server.Channel);
                 DiscordMessage me = await ch.GetMessageAsync(server.LastEmbed);
                 await me.DeleteAsync();
-            } catch {/**/}
+            } catch (Exception ex) {
+                await Console.Error.WriteLineAsync(ex.ToString());
+            }
         }
 
         try {
@@ -181,6 +189,12 @@ public class Commands : BaseCommandModule {
 }
 
 public static class ReviveTX {
+    public static async Task<DiscordEmbed> GetEmbed() {
+        Stats stats = await GetStats();
+
+        return !stats.Equals(default(Stats)) ? GetStatsEmbed(stats) : GetErrorEmbed();
+    }
+    
     public static async Task<Stats> GetStats() {
         HttpRequestMessage httpRequestMessage = new() {
             Method = HttpMethod.Get,
@@ -188,19 +202,17 @@ public static class ReviveTX {
         };
 
         using (HttpClient httpClient = new()) {
-            HttpResponseMessage responseMessage = await httpClient.SendAsync(httpRequestMessage);
-
-            return JsonConvert.DeserializeObject<Stats>(await responseMessage.Content.ReadAsStringAsync()) ?? new Stats();
+            try {
+                HttpResponseMessage responseMessage = await httpClient.SendAsync(httpRequestMessage);
+                return JsonConvert.DeserializeObject<Stats>(await responseMessage.Content.ReadAsStringAsync()) ?? new Stats();
+            } catch (Exception ex) {
+                await Console.Error.WriteLineAsync(ex.ToString());
+                return new Stats();
+            }
         }
     }
 
-    public static async Task<DiscordEmbed> GetEmbed() {
-        Stats stats = await GetStats();
-
-        return !stats.Equals(default(Stats)) ? GetStatsEmbed(stats) : GetErrorEmbed();
-    }
-
-    public static DiscordEmbed GetStatsEmbed(Stats stats) {
+    static DiscordEmbed GetStatsEmbed(Stats stats) {
         DiscordEmbed statsEmbed = new DiscordEmbedBuilder()
                                   .WithTitle("**Revive TX Server Statistics:**")
                                   .WithColor(DiscordColor.SpringGreen)
@@ -212,7 +224,7 @@ public static class ReviveTX {
         return statsEmbed!;
     }
 
-    public static DiscordEmbed GetErrorEmbed() {
+    static DiscordEmbed GetErrorEmbed() {
         DiscordEmbed errorEmbed = new DiscordEmbedBuilder()
                                   .WithTitle("**Revive TX Server Statistics:**")
                                   .WithColor(new DiscordColor(52, 205, 114))
