@@ -190,24 +190,24 @@ public class Commands : BaseCommandModule {
 
 public static class ReviveTX {
     public static async Task<DiscordEmbed> GetEmbed() {
-        Stats stats = await GetStats();
+        Stats? stats = await GetStats();
 
-        return !stats.Equals(default(Stats)) ? GetStatsEmbed(stats) : GetErrorEmbed();
+        return stats != null ? GetStatsEmbed(stats) : GetErrorEmbed();
     }
     
-    public static async Task<Stats> GetStats() {
+    public static async Task<Stats?> GetStats() {
         HttpRequestMessage httpRequestMessage = new() {
             Method = HttpMethod.Get,
             RequestUri = new Uri("http://main.txrevive.com/TXServer/StateServer/stats")
         };
 
-        using (HttpClient httpClient = new()) {
+        using (HttpClient httpClient = new() { Timeout = TimeSpan.FromSeconds(10) }) {
             try {
                 HttpResponseMessage responseMessage = await httpClient.SendAsync(httpRequestMessage);
-                return JsonConvert.DeserializeObject<Stats>(await responseMessage.Content.ReadAsStringAsync()) ?? new Stats();
+                return JsonConvert.DeserializeObject<Stats>(await responseMessage.Content.ReadAsStringAsync());
             } catch (Exception ex) {
                 await Console.Error.WriteLineAsync(ex.ToString());
-                return new Stats();
+                return null;
             }
         }
     }
@@ -226,9 +226,8 @@ public static class ReviveTX {
 
     static DiscordEmbed GetErrorEmbed() {
         DiscordEmbed errorEmbed = new DiscordEmbedBuilder()
-                                  .WithTitle("**Revive TX Server Statistics:**")
-                                  .WithColor(new DiscordColor(52, 205, 114))
-                                  .WithDescription("Server isn't responding!")
+                                  .WithTitle("**Server isn't responding!**")
+                                  .WithColor(DiscordColor.Red)
                                   .WithFooter("Dev: C6OI#6060")
                                   .WithThumbnail("https://i.imgur.com/N3jgexY.png")
                                   .WithTimestamp(DateTime.UtcNow);
